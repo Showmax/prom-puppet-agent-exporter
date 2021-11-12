@@ -3,12 +3,11 @@ PREFIX ?= /usr/local
 TARGET              := prom-puppet-agent-exporter
 TARGET_SRCS         := $(shell find . -type f -iname '*.go' -not -path './vendor/*')
 
-GO                  := GO15VENDOREXPERIMENT=1 go
+GO                  := go
 GIT_SUMMARY         := $(shell git describe --tags --always 2>/dev/null)
 GIT_BRANCH          := $(shell git branch | sed -n -e 's/^\* \(.*\)/\1/p')
 GO_VERSION          := $(shell $(GO) version)
 GOPATH              := $(lastword $(subst :, ,$(GOPATH)))
-DEP_BIN             :=  $(GOPATH)/bin/dep
 LDFLAGS             := -ldflags "-X 'main.version=$(GIT_SUMMARY)' -X 'main.goVersion=$(GO_VERSION)' -X 'main.gitBranch=$(GIT_BRANCH)'"
 
 .PHONY: all fmt vet lint test build install docker
@@ -21,11 +20,11 @@ fmt:
 		$(GO) fmt $$d/*.go || ret=$$? ; \
 		done ; exit $$ret
 
-test: vendor
+test:
 	@echo ">> running tests"
 	@$(GO) test $(shell $(GO) list ./... | grep -v /vendor/)
 
-vet: vendor
+vet:
 	@echo ">> vetting code"
 	@$(GO) vet $(shell $(GO) list ./... | grep -v /vendor/)
 
@@ -39,7 +38,7 @@ lint:
 
 build: $(TARGET)
 
-$(TARGET): $(TARGET_SRCS) vendor
+$(TARGET): $(TARGET_SRCS)
 	@echo ">> building binary..."
 	@echo ">> GOOS=$(GOOS) GOARCH=$(GOARCH) $(GO) build $(LDFLAGS) -o $(TARGET)"
 	@GOOS=$(GOOS) GOARCH=$(GOARCH) $(GO) build $(LDFLAGS) -o $(TARGET)
@@ -54,16 +53,6 @@ install: build
 	install -m 0755 -d $(DESTDIR)$(PREFIX)/bin
 	install -m 0755 $(TARGET) $(DESTDIR)$(PREFIX)/bin
 
-vendor: $(DEP_BIN) Gopkg.lock
-	@echo ">> installing golang dependencies into vendor directory..."
-	@$(DEP_BIN) ensure
-
-$(DEP_BIN):
-	@echo "Installing golang dependency manager..."
-	@$(GO) get -u github.com/golang/dep/cmd/dep
-
 clean:
 	@echo ">> removing binary"
 	@rm -rf $(TARGET)
-	@echo ">> removing vendor directory"
-	@rm -rf vendor
