@@ -1,6 +1,6 @@
 PREFIX ?= /usr/local
 
-TARGET              := prom-puppet-agent-exporter
+TARGET              := puppet-agent-exporter
 TARGET_SRCS         := $(shell find . -type f -iname '*.go' -not -path './vendor/*')
 
 GO                  := go
