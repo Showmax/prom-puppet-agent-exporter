@@ -44,7 +44,7 @@ $(TARGET): $(TARGET_SRCS)
 	@GOOS=$(GOOS) GOARCH=$(GOARCH) $(GO) build $(LDFLAGS) -o $(TARGET)
 
 docker: GOOS="linux" GOARCH="amd64"
-docker: DOCKER_IMAGE_NAME ?= "monitoring-tools/prom-puppet-agent-exporter:$(GIT_SUMMARY)"
+docker: DOCKER_IMAGE_NAME ?= "monitoring-tools/puppet-agent-exporter:$(GIT_SUMMARY)"
 docker: Dockerfile build
 	@echo ">> building docker image"
 	@docker build -t $(DOCKER_IMAGE_NAME) $(DOCKER_BUILD_ARGS) .
