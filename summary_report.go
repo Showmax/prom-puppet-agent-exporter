@@ -23,7 +23,15 @@ func (r *summaryReportScraper) UnmarshalYAML(unmarshal func(interface{}) error) 
 	var v struct {
 		Version struct {
 			Puppet string
-			Config float64
+			Config string
+		}
+		Application struct {
+			RunMode              string `yaml:"run_mode"`
+			InitialEnvironment   string `yaml:"initial_environment"`
+			ConvergedEnvironment string `yaml:"converged_environment"`
+		}
+		Time struct {
+			LastRun float64 `yaml:"last_run"`
 		}
 	}
 	if err := unmarshal(&v); err != nil {
@@ -31,7 +39,10 @@ func (r *summaryReportScraper) UnmarshalYAML(unmarshal func(interface{}) error) 
 	}
 
 	r.reportScraper.setPuppetVersion(v.Version.Puppet)
-	r.reportScraper.setConfigTimestamp(v.Version.Config)
+	r.reportScraper.setConfigTimestamp(v.Time.LastRun)
+	r.setCatalogVersion(v.Version.Config)
+
+	r.setInfo("environment", v.Application.ConvergedEnvironment)
 
 	var objmap map[string]gaugeValueMap
 	unmarshal(&objmap)

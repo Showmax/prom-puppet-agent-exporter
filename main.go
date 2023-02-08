@@ -20,8 +20,7 @@ Usage:
 
 The commands & flags are:
 
-  version                   print the version to stdout
-`
+  version                   print the version to stdout`
 
 var (
 	version   = "n/a"
