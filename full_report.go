@@ -3,6 +3,7 @@ package main
 import (
 	"hash/fnv"
 	"strconv"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -33,8 +34,21 @@ func (r *fullReportScraper) UnmarshalYAML(unmarshal func(interface{}) error) err
 		return err
 	}
 
+	var configTimestamp float64
+	if t, err := time.Parse(time.RFC3339, report.Time); err == nil {
+		// Puppet 6 report uses RFC3339 format
+		configTimestamp = float64(t.Unix())
+	} else if t, err = time.Parse("2006-01-02 15:04:05 -07:00", report.Time); err == nil {
+		// Puppet 3 report uses something else
+		configTimestamp = float64(t.Unix())
+	} else {
+		// Fallback to what was used previously
+		configTimestamp = hash(report.ConfigurationVersion)
+	}
+
 	r.setPuppetVersion(report.PuppetVersion)
-	r.setConfigTimestamp(hash(report.ConfigurationVersion))
+	r.setConfigTimestamp(configTimestamp)
+	r.setCatalogVersion(report.ConfigurationVersion)
 
 	r.setInfo("environment", report.Environment)
 
@@ -49,9 +63,10 @@ func (r *fullReportScraper) UnmarshalYAML(unmarshal func(interface{}) error) err
 
 type fullReport struct {
 	Metrics              fullReportMetricsSections
-	PuppetVersion        string  `yaml:"puppet_version"`
-	ConfigurationVersion string  `yaml:"configuration_version"`
+	PuppetVersion        string `yaml:"puppet_version"`
+	ConfigurationVersion string `yaml:"configuration_version"`
 	Environment          string
+	Time                 string
 }
 
 type fullReportMetricsSections map[string]fullReportMetricsSection

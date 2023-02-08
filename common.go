@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -56,6 +55,7 @@ type reportScraper struct {
 	info            map[string]string
 	data            gaugeValuesBySectionsMap
 	puppetVersion   string
+	catalogVersion  string
 	configTimestamp float64
 }
 
@@ -100,25 +100,23 @@ func (r *reportScraper) collectMetrics(ch chan<- prometheus.Metric, u puppetYaml
 
 	metricsBySections, err := r.processReport(u)
 
-	if metricsBySections != nil {
-		for section, metrics := range metricsBySections {
-			for metricName, metricValue := range metrics {
-				help, ok := knownMetricsDescriptionsBySection[section][metricName]
-				if !ok {
-					help = metricName
-				}
-
-				ch <- prometheus.MustNewConstMetric(
-					prometheus.NewDesc(
-						prometheus.BuildFQName(r.namespace, section, metricName),
-						help,
-						nil,
-						nil,
-					),
-					prometheus.GaugeValue,
-					metricValue,
-				)
+	for section, metrics := range metricsBySections {
+		for metricName, metricValue := range metrics {
+			help, ok := knownMetricsDescriptionsBySection[section][metricName]
+			if !ok {
+				help = metricName
 			}
+
+			ch <- prometheus.MustNewConstMetric(
+				prometheus.NewDesc(
+					prometheus.BuildFQName(r.namespace, section, metricName),
+					help,
+					nil,
+					nil,
+				),
+				prometheus.GaugeValue,
+				metricValue,
+			)
 		}
 	}
 
@@ -152,6 +150,22 @@ func (r *reportScraper) collectMetrics(ch chan<- prometheus.Metric, u puppetYaml
 		infoValues...,
 	)
 
+	catalogFailed := 0.0
+	if r.catalogVersion == "" {
+		catalogFailed = 1.0
+	}
+
+	ch <- prometheus.MustNewConstMetric(
+		prometheus.NewDesc(
+			prometheus.BuildFQName(r.namespace, "catalog", "failed"),
+			"Bool value of puppet agent failing retrive catalog",
+			nil,
+			nil,
+		),
+		prometheus.GaugeValue,
+		catalogFailed,
+	)
+
 	return err
 }
 
@@ -174,6 +188,10 @@ func (r *reportScraper) setConfigTimestamp(value float64) {
 	r.configTimestamp = value
 }
 
+func (r *reportScraper) setCatalogVersion(value string) {
+	r.catalogVersion = value
+}
+
 type parseError struct {
 	filename string
 	error
@@ -192,7 +210,9 @@ func (r *reportScraper) processDisabledLock() (bool, string) {
 		disabled = false
 	}
 
-	var d struct{ DisabledMessage string `json:"disabled_message"` }
+	var d struct {
+		DisabledMessage string `json:"disabled_message"`
+	}
 	if disabledLockContent != nil {
 		if err := json.Unmarshal(disabledLockContent, &d); err != nil {
 			return disabled, err.Error()
@@ -237,7 +257,7 @@ func readFile(filename string) ([]byte, error) {
 		return nil, &notFoundError{&readError{filename, err}}
 	}
 
-	content, err := ioutil.ReadFile(filename)
+	content, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, &readError{filename, err}
 	}
